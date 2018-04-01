@@ -1,6 +1,7 @@
 import re
 import queries
 from HTMLParser import HTMLParser
+import mysql.connector.errors
 
 
 class AlbumData:
@@ -56,32 +57,55 @@ class MusicParser(HTMLParser):
         else:
             self.dat.released = None
         if self.dat.country == "":
-            self.dat.country = None
+            self.dat.country = "Unknown"
 
         if conn:
             cursor = conn.cursor()
 
             for genre in self.dat.genre:
-                cursor.execute(queries.insertIntoGenre, {"genreName": genre, })
+                try:
+                    cursor.execute(queries.insertIntoGenre, {"genreName": genre, })
+                except mysql.connector.errors.IntegrityError:
+                    pass
 
             for style in self.dat.style:
-                cursor.execute(queries.insertIntoStyle, {"styleName": style, })
+                try:
+                    cursor.execute(queries.insertIntoStyle, {"styleName": style, })
+                except mysql.connector.errors.IntegrityError:
+                    pass
 
             for format in self.dat.format:
-                cursor.execute(queries.insertIntoFormat, {"formatName": format, })
+                try:
+                    cursor.execute(queries.insertIntoFormat, {"formatName": format, })
+                except mysql.connector.errors.IntegrityError:
+                    pass
 
-            for country in self.dat.country:
-                cursor.execute(queries.insertIntoCountry, {"countryName": country, })
+            try:
+                cursor.execute(queries.insertIntoCountry, {"countryName": self.dat.country, })
+            except mysql.connector.errors.IntegrityError:
+                pass
+
+            year = 0
+            if self.dat.released:
+                year = int(self.dat.released)
 
             cursor.execute(queries.insertIntoRecord, (
                 self.dat.albumName, name, version,
-                self.dat.country, self.dat.released,
+                self.dat.country, year,
             ))
 
             for song in self.dat.songs:
-                cursor.execute(queries.insertIntoSong, (
-                    song["name"], song["duration"]
-                ))
+                try:
+                    duration = 0
+                    if self.dat.songs[song]["duration"] != "":
+                        m = re.search('^([0-9]+):.*$', self.dat.songs[song]["duration"])
+                        s = re.search('^.*:([0-9]+).*$', self.dat.songs[song]["duration"])
+                        duration = int(m.group(1)) * 60 + int(s.group(1))
+                    cursor.execute(queries.insertIntoSong, (
+                        self.dat.songs[song]["name"], duration,
+                    ))
+                except AttributeError:
+                    pass
 
             for rec_genre in self.dat.genre:
                 cursor.execute(queries.insertIntoRecordGenre, (rec_genre, ))
@@ -91,6 +115,9 @@ class MusicParser(HTMLParser):
 
             for rec_format in self.dat.format:
                 cursor.execute(queries.insertIntoRecordFormat, (rec_format, ))
+
+            conn.commit()
+            cursor.close()
         else:
             self.dat.print_data()
 
@@ -134,7 +161,7 @@ class MusicParser(HTMLParser):
         elif self.check_stack(self.dat.p_row) and "data-track-position" in attrs:
             self.tagStack.append("row")
             self.profileTag = attrs["data-track-position"]
-        elif self.check_stack(self.dat.p_column):
+        elif self.check_stack(self.dat.p_column) and ("class" in attrs):
             self.tagStack.append("column")
             self.column = attrs["class"]
         elif self.check_stack(self.dat.p_blockquote):

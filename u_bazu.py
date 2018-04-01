@@ -14,12 +14,12 @@ def fufu(url, urlcont):
     parser.feed(urlcont)
     RAID = re.search('^.*com/([^/]+)/.*$', url)
     ID = re.search('^.*/([^/]+)$', url)
-    print "\n\n", url
+    # print "\n\n", url
     parser.apply(RAID.group(1), ID.group(1), conn)
     parser.reset()
-    i += 1
-    if i > 10:
-        exit(0)
+    # i += 1
+    # if i > 0:
+    #     exit(0)
 
 
 fi = open("albums_merged.pickle", "rb")
@@ -31,7 +31,13 @@ fi = open(files[0], "rb")
 caches=pickle.load(fi)
 fi.close()
 
+co = 0
 for country in albums_map:
     for url in albums_map[country]:
         if url in caches:
+            co += 1
+            if co % 50 == 0:
+                print '\r' + str(co)
             fufu(url, caches[url])
+
+conn.close()
