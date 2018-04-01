@@ -3,7 +3,7 @@ import threading
 import random
 import pickle
 import time
-import u_bazu
+import loadDatabase
 from urllib.error import HTTPError
 
 gg = 0
