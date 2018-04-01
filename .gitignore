@@ -4,3 +4,4 @@ example1_files/
 example2_files/
 artist_inserts.sql
 *.pyc
+.idea/
